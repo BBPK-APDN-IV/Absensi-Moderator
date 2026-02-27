@@ -408,20 +408,77 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
     });
 
-    // Submit Handling
+    // Submit Handling Terhubung ke Google Sheets
     document.getElementById('absenForm').addEventListener('submit', function(e) {
-        e.preventDefault();
+        e.preventDefault(); // Mencegah form memuat ulang halaman
+
         if(isCanvasBlank(canvas)){
             alert('Mohon isi tanda tangan terlebih dahulu.');
-        } else {
-            // Data tanda tangan bisa diambil dari sini:
-            // const signatureData = canvas.toDataURL(); 
-            
-            alert('Data Absensi Berhasil Dikirim!');
-            this.reset();
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
+            return;
+        } 
+
+        // Ubah tampilan tombol saat proses loading
+        const submitBtn = document.querySelector('.submit-btn');
+        const originalBtnText = submitBtn.innerText;
+        submitBtn.innerText = 'Mengirim Data...';
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.7';
+
+        // 1. Siapkan data dari form
+        const formData = {
+            nama: document.getElementById('nama').value,
+            nip: document.getElementById('nip').value,
+            jabatan: document.getElementById('jabatan').value,
+            jenis_pelatihan: document.getElementById('jenis_pelatihan').value,
+            jenis_ujian: document.getElementById('jenis_ujian').value,
+            angkatan: document.getElementById('angkatan').value,
+            kelompok: document.getElementById('kelompok').value,
+            tanda_tangan: canvas.toDataURL() // Ini mengambil gambar kanvas menjadi teks Base64
+        };
+
+        // 2. MASUKKAN URL WEB APP DARI GOOGLE APPS SCRIPT DI SINI
+        const scriptURL = 'https://script.google.com/macros/s/AKfycbykQ1jAFLpeJKSqjK084Ez7yRdVpRXhFRkfOT0lnKnM4VAsCklDnRbcWd3SzAxlPi4/exec';
+
+        // 3. Kirim data menggunakan Fetch API
+        fetch(scriptURL, {
+            method: 'POST',
+            body: JSON.stringify(formData),
+            headers: {
+                // Gunakan text/plain untuk menghindari error CORS di Google Apps Script
+                'Content-Type': 'text/plain;charset=utf-8', 
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.result === 'success') {
+                alert('Data Kehadiran & Tanda Tangan Berhasil Dikirim!');
+                // Reset form dan kanvas jika sukses
+                document.getElementById('absenForm').reset();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            } else {
+                alert('Gagal mengirim data: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Terjadi kesalahan jaringan saat mengirim data.');
+        })
+        .finally(() => {
+            // Kembalikan tombol ke keadaan semula
+            submitBtn.innerText = originalBtnText;
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+        });
     });
+
+    function isCanvasBlank(canvas) {
+        // ... (fungsi isCanvasBlank tetap sama seperti sebelumnya) ...
+        const context = canvas.getContext('2d');
+        const pixelBuffer = new Uint32Array(
+            context.getImageData(0, 0, canvas.width, canvas.height).data.buffer
+        );
+        return !pixelBuffer.some(color => color !== 0);
+    }
 
     function isCanvasBlank(canvas) {
         const context = canvas.getContext('2d');
